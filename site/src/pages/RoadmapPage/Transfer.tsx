@@ -9,9 +9,9 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import CloseButton from 'react-bootstrap/CloseButton';
 
-import { TransferData } from '../../types/types';
 import { setShowTransfer, deleteTransfer, setTransfer, addTransfer } from '../../store/slices/roadmapSlice';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { TransferData } from '@peterportal/types';
 
 interface TransferEntryProps extends TransferData {
   index: number;
@@ -41,7 +41,7 @@ const TransferEntry: FC<TransferEntryProps> = (props) => {
         transfer: { name, units },
       }),
     );
-  }, [name, units]);
+  }, [dispatch, name, props.index, units]);
 
   return (
     <Row className="g-2 mb-1" xs={3}>
@@ -68,7 +68,6 @@ const Transfer: FC<MissingCoursesProps> = ({ missingPrereqNames }) => {
   const transfers = useAppSelector((state) => state.roadmap.transfers);
   const show = useAppSelector((state) => state.roadmap.showTransfer);
   const handleClose = () => dispatch(setShowTransfer(false));
-
   const DisplayMissingCourses: FC = () => {
     return (
       <ListGroup horizontal>
@@ -94,8 +93,12 @@ const Transfer: FC<MissingCoursesProps> = ({ missingPrereqNames }) => {
           Notice: entered course names need to match exactly as displayed on the UCI catalog (eg. "AP computer science"
           must be entered as "AP COMP SCI A")
         </p>
-        <p>Missing Prerequisites</p>
-        <DisplayMissingCourses />
+        {missingPrereqNames?.size > 0 && (
+          <>
+            <p>Missing Prerequisites</p>
+            <DisplayMissingCourses />
+          </>
+        )}
         <Container className="entry">
           <Form>
             {transfers.map((transfer, i) => (

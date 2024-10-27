@@ -1,13 +1,14 @@
-import { FC, useState, useEffect } from 'react';
-import axios, { AxiosResponse } from 'axios';
+import { FC, useState, useEffect, useCallback } from 'react';
 import SubReview from './SubReview';
 import ReviewForm from '../ReviewForm/ReviewForm';
 import './Review.scss';
 
 import { selectReviews, setReviews, setFormStatus } from '../../store/slices/reviewSlice';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { CourseGQLData, ProfessorGQLData, ReviewData } from '../../types/types';
+import { CourseGQLData, ProfessorGQLData } from '../../types/types';
 import { Checkbox, Dropdown } from 'semantic-ui-react';
+import trpc from '../../trpc';
+import { ReviewData } from '@peterportal/types';
 
 export interface ReviewProps {
   course?: CourseGQLData;
@@ -26,8 +27,9 @@ const Review: FC<ReviewProps> = (props) => {
   const [sortingOption, setSortingOption] = useState<SortingOption>(SortingOption.MOST_RECENT);
   const [filterOption, setFilterOption] = useState('');
   const [showOnlyVerifiedReviews, setShowOnlyVerifiedReviews] = useState(false);
+  const showForm = useAppSelector((state) => state.review.formOpen);
 
-  const getReviews = async () => {
+  const getReviews = useCallback(async () => {
     interface paramsProps {
       courseID?: string;
       professorID?: string;
@@ -35,21 +37,15 @@ const Review: FC<ReviewProps> = (props) => {
     const params: paramsProps = {};
     if (props.course) params.courseID = props.course.id;
     if (props.professor) params.professorID = props.professor.ucinetid;
-    axios
-      .get(`/api/reviews`, {
-        params: params,
-      })
-      .then(async (res: AxiosResponse<ReviewData[]>) => {
-        const data = res.data.filter((review) => review !== null);
-        dispatch(setReviews(data));
-      });
-  };
+    const reviews = await trpc.reviews.get.query(params);
+    dispatch(setReviews(reviews));
+  }, [dispatch, props.course, props.professor]);
 
   useEffect(() => {
     // prevent reviews from carrying over
     dispatch(setReviews([]));
     getReviews();
-  }, [props.course?.id, props.professor?.ucinetid]);
+  }, [dispatch, getReviews]);
 
   let sortedReviews: ReviewData[];
   // filter verified if option is set
@@ -189,19 +185,13 @@ const Review: FC<ReviewProps> = (props) => {
             </div>
           </div>
           {sortedReviews.map((review) => (
-            <SubReview
-              review={review}
-              key={review._id}
-              course={props.course}
-              professor={props.professor}
-              // updateScore={(newUserVote) => updateScore(review._id!, newUserVote)}
-            />
+            <SubReview review={review} key={review._id} course={props.course} professor={props.professor} />
           ))}
           <button type="button" className="add-review-btn" onClick={openReviewForm}>
             + Add Review
           </button>
         </div>
-        <ReviewForm closeForm={closeForm} {...props} />
+        <ReviewForm closeForm={closeForm} show={showForm} {...props} />
       </>
     );
   }

@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
-import { ReviewData } from '../../types/types';
+import { EditReviewSubmission, ReviewData } from '@peterportal/types';
 
 // Define a type for the slice state
 interface ReviewState {
@@ -26,6 +26,10 @@ export const reviewSlice = createSlice({
     setReviews: (state, action: PayloadAction<ReviewData[]>) => {
       state.reviews = action.payload;
     },
+    editReview: (state, action: PayloadAction<EditReviewSubmission>) => {
+      const i = state.reviews.findIndex((review) => review._id === action.payload._id);
+      state.reviews[i] = { ...state.reviews[i], ...action.payload }; // overwrite with edited properties
+    },
     setFormStatus: (state, action: PayloadAction<boolean>) => {
       state.formOpen = action.payload;
     },
@@ -35,7 +39,7 @@ export const reviewSlice = createSlice({
   },
 });
 
-export const { addReview, setReviews, setFormStatus, toggleFormStatus } = reviewSlice.actions;
+export const { addReview, setReviews, editReview, setFormStatus, toggleFormStatus } = reviewSlice.actions;
 
 // Other code such as selectors can use the imported `RootState` type
 export const selectReviews = (state: RootState) => state.review.reviews;

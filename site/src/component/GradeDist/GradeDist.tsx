@@ -3,10 +3,10 @@ import { Dropdown, Grid, DropdownProps } from 'semantic-ui-react';
 import Chart from './Chart';
 import Pie from './Pie';
 import './GradeDist.scss';
-import axios from 'axios';
 
-import { CourseGQLData, ProfessorGQLData, QuarterName } from '../../types/types';
-import { GradesRaw } from 'peterportal-api-next-types';
+import { CourseGQLData, ProfessorGQLData } from '../../types/types';
+import { GradesRaw, QuarterName } from '@peterportal/types';
+import trpc from '../../trpc';
 
 interface GradeDistProps {
   course?: CourseGQLData;
@@ -38,29 +38,25 @@ const GradeDist: FC<GradeDistProps> = (props) => {
   const [quarterEntries, setQuarterEntries] = useState<Entry[]>(null!);
 
   const fetchGradeDistData = () => {
-    let url = '';
-    let params = {};
+    let request: Promise<GradesRaw>;
     // course context
     if (props.course) {
-      url = `/api/courses/api/grades`;
-      params = {
+      const params = {
         department: props.course.department,
         number: props.course.courseNumber,
       };
+      request = trpc.courses.grades.query(params);
     } else if (props.professor) {
-      url = `/api/professors/api/grades/${props.professor.shortenedName}`;
+      const params = {
+        name: props.professor.shortenedName,
+      };
+      request = trpc.professors.grades.query(params);
     }
-    axios
-      .get<GradesRaw>(url, {
-        params: params,
-      })
-      .then((res) => {
-        setGradeDistData(res.data);
-      })
-      .catch((error) => {
-        setGradeDistData([]);
-        console.error(error.response);
-      });
+
+    request!.then(setGradeDistData).catch((error) => {
+      setGradeDistData([]);
+      console.error(error.response);
+    });
   };
 
   // reset any data from a previous course or professor, get new data for course or professor
@@ -191,6 +187,48 @@ const GradeDist: FC<GradeDistProps> = (props) => {
     setCurrentCourse(status.value as string);
   };
 
+  const optionsRow = (
+    <Grid.Row id="menu">
+      {props.minify && (
+        <Grid.Column className="gradedist-filter">
+          <Dropdown
+            placeholder="Chart Type"
+            scrolling
+            selection
+            options={[
+              { text: 'Bar', value: 'bar' },
+              { text: 'Pie', value: 'pie' },
+            ]}
+            value={chartType}
+            onChange={(_, s) => setChartType(s.value as ChartTypes)}
+          />
+        </Grid.Column>
+      )}
+
+      <Grid.Column className="gradedist-filter">
+        <Dropdown
+          placeholder={props.course ? 'Professor' : 'Course'}
+          scrolling
+          selection
+          options={props.course ? profEntries : courseEntries}
+          value={props.course ? currentProf : currentCourse}
+          onChange={props.course ? updateCurrentProf : updateCurrentCourse}
+        />
+      </Grid.Column>
+
+      <Grid.Column className="gradedist-filter">
+        <Dropdown
+          placeholder="Quarter"
+          scrolling
+          selection
+          options={quarterEntries}
+          value={currentQuarter}
+          onChange={updateCurrentQuarter}
+        />
+      </Grid.Column>
+    </Grid.Row>
+  );
+
   if (gradeDistData !== null && gradeDistData.length !== 0) {
     const graphProps = {
       gradeData: gradeDistData,
@@ -200,45 +238,7 @@ const GradeDist: FC<GradeDistProps> = (props) => {
     };
     return (
       <div className={`gradedist-module-container ${props.minify ? 'grade-dist-mini' : ''}`}>
-        <Grid.Row id="menu">
-          {props.minify && (
-            <Grid.Column className="gradedist-filter">
-              <Dropdown
-                placeholder="Chart Type"
-                scrolling
-                selection
-                options={[
-                  { text: 'Bar', value: 'bar' },
-                  { text: 'Pie', value: 'pie' },
-                ]}
-                value={chartType}
-                onChange={(_, s) => setChartType(s.value as ChartTypes)}
-              />
-            </Grid.Column>
-          )}
-
-          <Grid.Column className="gradedist-filter">
-            <Dropdown
-              placeholder={props.course ? 'Professor' : 'Course'}
-              scrolling
-              selection
-              options={props.course ? profEntries : courseEntries}
-              value={props.course ? currentProf : currentCourse}
-              onChange={props.course ? updateCurrentProf : updateCurrentCourse}
-            />
-          </Grid.Column>
-
-          <Grid.Column className="gradedist-filter">
-            <Dropdown
-              placeholder="Quarter"
-              scrolling
-              selection
-              options={quarterEntries}
-              value={currentQuarter}
-              onChange={updateCurrentQuarter}
-            />
-          </Grid.Column>
-        </Grid.Row>
+        {optionsRow}
 
         <Grid.Row id="chart">
           {((props.minify && chartType == 'bar') || !props.minify) && (
@@ -256,10 +256,24 @@ const GradeDist: FC<GradeDistProps> = (props) => {
     );
   } else if (gradeDistData == null) {
     // null if still fetching, display loading message
-    return <>Loading Distribution..</>;
+    return (
+      <div className={`gradedist-module-container ${props.minify ? 'grade-dist-mini' : ''}`}>
+        {optionsRow}
+        <div style={{ height: 400, textAlign: 'center' }}>
+          <p>Loading Distribution..</p>
+        </div>
+      </div>
+    );
   } else {
     // gradeDistData is empty, did not receive any data from API call or received an error, display an error message
-    return <>Error: could not retrieve grade distribution data.</>;
+    return (
+      <div className={`gradedist-module-container ${props.minify ? 'grade-dist-mini' : ''}`}>
+        {optionsRow}
+        <div style={{ height: 400, textAlign: 'center' }}>
+          <p>Error: could not retrieve grade distribution data.</p>
+        </div>
+      </div>
+    );
   }
 };
 
